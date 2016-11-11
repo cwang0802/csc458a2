@@ -391,6 +391,10 @@ void sr_send_icmp_error(uint8_t icmp_type, uint8_t icmp_code, struct sr_instance
   /* get interface */
   char * interface;
   struct sr_if *iface = sr_get_interface_by_ip(sr, orig_ip_header->ip_src);
+  
+  
+  
+  
   if (iface == 0) {
   	struct sr_rt *lpm = sr_find_lpm(sr->routing_table, orig_ip_header->ip_src);
 	if (!lpm){
@@ -399,6 +403,9 @@ void sr_send_icmp_error(uint8_t icmp_type, uint8_t icmp_code, struct sr_instance
 	
 	iface = sr_get_interface(sr, lpm->interface);
 	
+	if (!iface){
+		iface = sr_get_interface_by_ip(sr, lpm->interface);
+	}
 	
 
   }
@@ -415,6 +422,7 @@ void sr_send_icmp_error(uint8_t icmp_type, uint8_t icmp_code, struct sr_instance
   print_addr_eth(packet+6);
   
   memcpy(icmp_packet+6, iface->addr, ETHER_ADDR_LEN);
+   
    
   eth_header->ether_type = htons(ethertype_ip);
  
@@ -436,7 +444,18 @@ void sr_send_icmp_error(uint8_t icmp_type, uint8_t icmp_code, struct sr_instance
   
   ip_header->ip_dst = orig_ip_header->ip_src;
   
-  ip_header->ip_src = iface->ip;
+  if (icmp_type == 3 && icmp_code == 3) {
+	/* is TCP/UDP, port unreachable */  
+	ip_header->ip_src = orig_ip_header->ip_dst;
+  } else {
+	ip_header->ip_src = iface->ip;  
+  }
+  
+  
+
+  
+  icmp3_header->unused = 0;
+  icmp3_header->next_mtu = 0;
   
   ip_header->ip_sum = calc_ip_cksum(ip_header);
   
@@ -476,15 +495,9 @@ void sr_send_icmp_error(uint8_t icmp_type, uint8_t icmp_code, struct sr_instance
   printf("before icmp3_header set \n");
   icmp3_header->icmp_type = icmp_type;
   icmp3_header->icmp_code = icmp_code;
-  
-  
-  
   memcpy(icmp3_header->data, orig_ip_header, 28);
   
-  
-  
   icmp3_header->icmp_sum = calc_icmp3_cksum(icmp3_header);
-  
   
   
 

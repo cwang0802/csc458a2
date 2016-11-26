@@ -99,3 +99,27 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   pthread_mutex_unlock(&(nat->lock));
   return mapping;
 }
+
+void sr_nexthop(
+	struct sr_instance* sr, 
+	uint8_t * packet, 
+	unsigned int len, 
+	char *iface)
+{
+  /* REQUIRES */
+  assert(sr);
+  assert(packet);
+  assert(len);
+  assert(mac_addr);
+  
+  
+  //Must check if its ICMP vs ARP
+  printf("Ok, we are about to send a packet, must NATify it first! Here is what is inside the packet:\n");
+  
+  print_hdrs(packet, len);
+  
+  
+}
+  
+
+}

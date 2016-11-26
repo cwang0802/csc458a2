@@ -60,5 +60,12 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
 struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   uint32_t ip_int, uint16_t aux_int, sr_nat_mapping_type type );
 
+/* Given a packet, figure out if its TCP or ICMP, then do what must be
+ * done to ensure address gets translated */
+void sr_nexthop(
+	struct sr_instance* sr, 
+	uint8_t * packet, 
+	unsigned int len, 
+	char *iface);
 
 #endif

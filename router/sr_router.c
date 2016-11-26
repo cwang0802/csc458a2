@@ -235,7 +235,9 @@ void sr_handlepacket(struct sr_instance* sr,
             			if (sendPacket->buf){
 
 				
-				
+					if (sr->nat_enabled = 1){
+						sr_handle_nat(sr, sendPacket->buf, sendPacket->len, sendPacket->iface);
+					}
 					sr_nexthop(sr, sendPacket->buf, sendPacket->len, arpHdr->ar_sha, sendPacket->iface);
 				}
         		}
@@ -252,7 +254,7 @@ void sr_handlepacket(struct sr_instance* sr,
 	  }
 
   }
-  /* is IP packet OR  TCP Packet */
+  /* is IP packet */
   else {
 	  
 	  
@@ -304,7 +306,9 @@ void sr_handlepacket(struct sr_instance* sr,
    	if (entry){
 	printf("I found the ICMP target ip in my cache! Sending it forward to next hop \n");
 	/* Send the ICMP now */
-	
+		if (sr->nat_enabled = 1){
+			sr_handle_nat(sr, sendPacket->buf, sendPacket->len, sendPacket->iface);
+		}
 		sr_nexthop(sr, packet, len, entry->mac, matchResult->interface);
 	
 	
@@ -575,14 +579,15 @@ void sr_send_echo_reply(struct sr_instance *sr, uint8_t *packet, unsigned int le
 	memcpy(eth_header->ether_shost, eth_header->ether_dhost, ETHER_ADDR_LEN);
 
 	if (entry){
-	printf("I found the ICMP target ip in my cache! Sending it forward to next hop \n");
-	/* Send the ICMP now */
-	
+		printf("I found the ICMP target ip in my cache! Sending it forward to next hop \n");
+		/* Send the ICMP now */
+		
 		memcpy(eth_header->ether_dhost, entry->mac, ETHER_ADDR_LEN);
 
+		sr_handle_nat(sr, packet, len, interface);
 		sr_send_packet(sr, packet, len, interface);
-	
-	
+		
+		
 	
     }
    	else{
@@ -597,7 +602,7 @@ void sr_send_echo_reply(struct sr_instance *sr, uint8_t *packet, unsigned int le
        		req = sr_arpcache_queuereq(&(sr->cache), ip_header->ip_dst, packet, len, interface);
 		/* now send the req through a function. Keep sending it every second for 5 seconds: */
        
-       		handle_arpreq(req, sr); /* doesn't work yet */
+       		handle_arpreq(req, sr);
   	 }
 	
 	

@@ -303,9 +303,6 @@ void sr_handlepacket(struct sr_instance* sr,
    	if (entry){
 	printf("I found the ICMP target ip in my cache! Sending it forward to next hop \n");
 	/* Send the ICMP now */
-		if (sr->nat_enabled == 1){
-			sr_handle_nat(sr, packet, len, matchResult->interface);
-		}
 		sr_nexthop(sr, packet, len, entry->mac, matchResult->interface);
 	
 	

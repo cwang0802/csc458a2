@@ -252,8 +252,15 @@ void sr_handlepacket(struct sr_instance* sr,
 	  }
 
   }
-  /* is IP packet */
+  /* is IP packet OR  TCP Packet */
   else {
+	  
+	  
+	  
+	  
+	  
+	  
+	  
     print_hdr_ip(packet + sizeof(sr_ethernet_hdr_t));
 
     struct sr_ip_hdr* ip_header = (struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t));

@@ -1,0 +1,30 @@
+ssh -p 8022 mininet@localhost
+
+cd ~/cs144_lab3/
+cd ~/csc458a1/
+
+To connect to mininet, do this:
+
+cvm csc458
+
+First:
+./config.sh
+./run_mininet.sh
+
+Then:
+
+./run_pox.sh
+
+also:
+
+
+./sr_nat -n -l logname.pcap
+
+
+
+Now commands:
+
+client ping -c 3 192.168.2.2
+
+Add & sign to end of call to open in backend
+wireshark logname.pcap &

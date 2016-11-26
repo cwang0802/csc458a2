@@ -54,6 +54,12 @@ struct sr_instance
     struct sr_arpcache cache;   /* ARP cache */
     pthread_attr_t attr;
     FILE* logfile;
+
+    int nat_enabled;
+    unsigned int icmp_query_timeout;
+    unsigned int tcp_est_timeout;
+    unsigned int tcp_trans_timeout;
+    sr_nat* nat;
 };
 
 /* -- sr_main.c -- */

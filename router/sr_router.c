@@ -235,9 +235,6 @@ void sr_handlepacket(struct sr_instance* sr,
             			if (sendPacket->buf){
 
 				
-					if (sr->nat_enabled = 1){
-						sr_handle_nat(sr, sendPacket->buf, sendPacket->len, sendPacket->iface);
-					}
 					sr_nexthop(sr, sendPacket->buf, sendPacket->len, arpHdr->ar_sha, sendPacket->iface);
 				}
         		}
@@ -306,8 +303,8 @@ void sr_handlepacket(struct sr_instance* sr,
    	if (entry){
 	printf("I found the ICMP target ip in my cache! Sending it forward to next hop \n");
 	/* Send the ICMP now */
-		if (sr->nat_enabled = 1){
-			sr_handle_nat(sr, sendPacket->buf, sendPacket->len, sendPacket->iface);
+		if (sr->nat_enabled == 1){
+			sr_handle_nat(sr, packet, len, matchResult->interface);
 		}
 		sr_nexthop(sr, packet, len, entry->mac, matchResult->interface);
 	
@@ -493,12 +490,6 @@ void sr_send_icmp_error(uint8_t icmp_type, uint8_t icmp_code, struct sr_instance
   
   
   
-  
-  
-  
-  
-  
-  
   */
   
   
@@ -583,8 +574,9 @@ void sr_send_echo_reply(struct sr_instance *sr, uint8_t *packet, unsigned int le
 		/* Send the ICMP now */
 		
 		memcpy(eth_header->ether_dhost, entry->mac, ETHER_ADDR_LEN);
-
-		sr_handle_nat(sr, packet, len, interface);
+		if (sr->nat_enabled == 1){
+			sr_handle_nat(sr, packet, len, interface);
+		}
 		sr_send_packet(sr, packet, len, interface);
 		
 		
@@ -650,7 +642,9 @@ printf("To this interface: %s \n", iface);
   print_hdr_eth(packet);
   print_hdr_ip(packet + 14);
 				
-  
+  if (sr->nat_enabled == 1){
+	sr_handle_nat(sr, packet, len, iface);
+  }
   sr_send_packet(sr, packet, len, iface); 
   
 

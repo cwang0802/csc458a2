@@ -44,6 +44,9 @@ extern char* optarg;
 #define DEFAULT_SERVER "localhost"
 #define DEFAULT_RTABLE "rtable"
 #define DEFAULT_TOPO 0
+#define DEFAULT_ICMP_QUERY_TIMEOUT 60
+#define DEFAULT_TCP_EST_TIMEOUT 7440
+#define DEFAULT_TCP_TRANS_TIMEOUT 300
 
 static void usage(char* );
 static void sr_init_instance(struct sr_instance* );
@@ -66,6 +69,11 @@ int main(int argc, char **argv)
     unsigned int topo = DEFAULT_TOPO;
     char *logfile = 0;
     struct sr_instance sr;
+
+    int nat_enabled = 0;
+    unsigned int icmp_query_timeout = DEFAULT_ICMP_QUERY_TIMEOUT;
+    unsigned int tcp_est_timeout = DEFAULT_TCP_EST_TIMEOUT;
+    unsigned int tcp_trans_timeout = DEFAULT_TCP_TRANS_TIMEOUT;
 
     printf("Using %s\n", VERSION_INFO);
 
@@ -101,6 +109,18 @@ int main(int argc, char **argv)
             case 'T':
                 template = optarg;
                 break;
+            case 'n':
+                nat_enabled = 1;
+                break;
+            case 'I':
+                icmp_query_timeout = atoi((char *) optarg);
+                break;
+            case 'E':
+                tcp_est_timeout = atoi((char *) optarg);
+                break;
+            case 'R':
+                tcp_trans_timeout = atoi((char *) optarg);
+                break;
         } /* switch */
     } /* -- while -- */
 
@@ -135,6 +155,19 @@ int main(int argc, char **argv)
         }
     }
 
+    /* -- check if NAT is enabled -- */
+    if (nat_enabled != 0) {
+        sr.nat_enabled = nat_enabled;
+
+        sr.icmp_query_timeout = icmp_query_timeout;
+        sr.tcp_est_timeout = tcp_est_timeout;
+        sr.tcp_trans_timeout = tcp_trans_timeout;
+
+        if (sr_nat_init(sr.nat)) {
+            printf("NAT was succesfully initialized \n");
+        }
+    }
+
     Debug("Client %s connecting to Server %s:%d\n", sr.user, server, port);
     if(template)
         Debug("Requesting topology template %s\n", template);
@@ -163,6 +196,7 @@ int main(int argc, char **argv)
     while( sr_read_from_server(&sr) == 1);
 
     sr_destroy_instance(&sr);
+    sr_nat_destroy(&sr.nat);
 
     return 0;
 }/* -- main -- */

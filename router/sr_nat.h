@@ -60,7 +60,8 @@ void sr_handle_nat(
 	struct sr_instance* sr, 
 	uint8_t * packet, 
 	unsigned int len, 
-	char *iface);
+	char *iface,
+  struct sr_ip_hdr *ip_header);
 
 /* Get the mapping associated with given external port.
    You must free the returned structure if it is not NULL. */

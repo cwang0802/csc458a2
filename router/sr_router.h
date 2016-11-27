@@ -74,6 +74,7 @@ int sr_read_from_server(struct sr_instance* );
 /* -- sr_router.c -- */
 void sr_init(struct sr_instance* );
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
+void sr_handle_regular_IP(struct sr_instance *, uint8_t *, unsigned int, char *, struct sr_ip_hdr *);
 void sr_send_icmp_error(uint8_t, uint8_t, struct sr_instance *, uint8_t *);
 void sr_send_echo_reply(struct sr_instance *, uint8_t *, unsigned int, char *);
 

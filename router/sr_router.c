@@ -253,16 +253,23 @@ void sr_handlepacket(struct sr_instance* sr,
   }
   /* is IP packet */
   else {
-	  
-	  
-	  
-	  
-	  
-	  
-	  
-    print_hdr_ip(packet + sizeof(sr_ethernet_hdr_t));
 
-    struct sr_ip_hdr* ip_header = (struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t));
+  	struct sr_ip_hdr* ip_header = (struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t));
+
+  	if (sr->nat_enabled != 0) {
+		/** NAT handling **/
+		sr_handle_nat(sr, packet, len, interface, ip_header);
+	}
+
+	sr_handle_regular_IP(sr, packet, len, interface, ip_header);
+  }
+
+}/* end sr_ForwardPacket */
+
+void sr_handle_regular_IP(struct sr_instance *sr, uint8_t *packet, unsigned int len, char *interface, struct sr_ip_hdr *ip_header) {
+
+	print_hdr_ip(packet + sizeof(sr_ethernet_hdr_t));
+
 
     /* sanity check packet (length, checksum) */
     /* validatePacket(ip_header, len); */
@@ -321,7 +328,7 @@ void sr_handlepacket(struct sr_instance* sr,
        		req = sr_arpcache_queuereq(&(sr->cache), ip_header->ip_dst, packet, len, matchResult->interface);
 		/* now send the req through a function. Keep sending it every second for 5 seconds: */
        
-       		handle_arpreq(req, sr); /* doesn't work yet */
+       		handle_arpreq(req, sr);
   	 }
 	  
 	  
@@ -368,10 +375,8 @@ void sr_handlepacket(struct sr_instance* sr,
 
   	   printf("CASE CLOSED\n");
 	}
-	  
-  }
 
-}/* end sr_ForwardPacket */
+}
 
 void sr_send_icmp_error(uint8_t icmp_type, uint8_t icmp_code, struct sr_instance *sr, uint8_t *packet) {
   /* get packet length */
@@ -571,9 +576,9 @@ void sr_send_echo_reply(struct sr_instance *sr, uint8_t *packet, unsigned int le
 		/* Send the ICMP now */
 		
 		memcpy(eth_header->ether_dhost, entry->mac, ETHER_ADDR_LEN);
-		if (sr->nat_enabled == 1){
+		/**if (sr->nat_enabled == 1){
 			sr_handle_nat(sr, packet, len, interface);
-		}
+		}**/
 		sr_send_packet(sr, packet, len, interface);
 		
 		
@@ -639,9 +644,9 @@ printf("To this interface: %s \n", iface);
   print_hdr_eth(packet);
   print_hdr_ip(packet + 14);
 				
-  if (sr->nat_enabled == 1){
+  /**if (sr->nat_enabled == 1){
 	sr_handle_nat(sr, packet, len, iface);
-  }
+  }**/
   sr_send_packet(sr, packet, len, iface); 
   
 

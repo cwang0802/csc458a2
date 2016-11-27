@@ -104,7 +104,8 @@ void sr_handle_nat(
 	struct sr_instance* sr, 
 	uint8_t * packet, 
 	unsigned int len, 
-	char *iface)
+	char *iface,
+  struct sr_ip_hdr *ip_header)
 {
   /* REQUIRES */
   assert(sr);
@@ -117,8 +118,18 @@ void sr_handle_nat(
 
   print_hdrs(packet, len);
   
-  
+  /* 
+  check if ICMP or TCP
+  if packet is outgoing (internal -> external):
+    lookup unique mapping, and insert if not already in mapping table
+  else:
+    if no mapping and not a SYN:
+      drop packet
 
-  
+  rewrite IP src for outgoing packets, rewrite IP dst for incoming packets
+  rewrite ICMP id / TCP port #
+  update checksums
+  route packet as normal
+  */   
 
 }

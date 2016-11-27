@@ -196,7 +196,10 @@ int main(int argc, char **argv)
     while( sr_read_from_server(&sr) == 1);
 
     sr_destroy_instance(&sr);
-    sr_nat_destroy(&sr.nat);
+
+    if (nat_enabled != 0) {
+        sr_nat_destroy(sr.nat);
+    }
 
     return 0;
 }/* -- main -- */

@@ -5,6 +5,15 @@
 #include <inttypes.h>
 #include <time.h>
 #include <pthread.h>
+#include <netinet/in.h>
+#include <sys/time.h>
+#include <stdio.h>
+
+
+#include "sr_router.h"
+#include "sr_arpcache.h"
+#include "sr_protocol.h"
+#include "sr_utils.h"
 
 typedef enum {
   nat_mapping_icmp,
@@ -45,6 +54,14 @@ int   sr_nat_init(struct sr_nat *nat);     /* Initializes the nat */
 int   sr_nat_destroy(struct sr_nat *nat);  /* Destroys the nat (free memory) */
 void *sr_nat_timeout(void *nat_ptr);  /* Periodic Timout */
 
+/* Given a packet, figure out if its TCP or ICMP, then do what must be
+ * done to ensure address gets translated */
+void sr_handle_nat(
+	struct sr_instance* sr, 
+	uint8_t * packet, 
+	unsigned int len, 
+	char *iface);
+
 /* Get the mapping associated with given external port.
    You must free the returned structure if it is not NULL. */
 struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
@@ -60,12 +77,5 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
 struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   uint32_t ip_int, uint16_t aux_int, sr_nat_mapping_type type );
 
-/* Given a packet, figure out if its TCP or ICMP, then do what must be
- * done to ensure address gets translated */
-void sr_nexthop(
-	struct sr_instance* sr, 
-	uint8_t * packet, 
-	unsigned int len, 
-	char *iface);
 
-#endif
+#endif 

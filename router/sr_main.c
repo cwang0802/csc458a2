@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 
     printf("Using %s\n", VERSION_INFO);
 
-    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:l:T:")) != EOF)
+    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:l:T:n:I:E:R")) != EOF)
     {
         switch (c)
         {
@@ -155,18 +155,6 @@ int main(int argc, char **argv)
         }
     }
 
-    /* -- check if NAT is enabled -- */
-    if (nat_enabled != 0) {
-        sr.nat_enabled = nat_enabled;
-
-        sr.icmp_query_timeout = icmp_query_timeout;
-        sr.tcp_est_timeout = tcp_est_timeout;
-        sr.tcp_trans_timeout = tcp_trans_timeout;
-
-        if (sr_nat_init(sr.nat)) {
-            printf("NAT was succesfully initialized \n");
-        }
-    }
 
     Debug("Client %s connecting to Server %s:%d\n", sr.user, server, port);
     if(template)
@@ -192,6 +180,18 @@ int main(int argc, char **argv)
     /* call router init (for arp subsystem etc.) */
     sr_init(&sr);
 
+    /* -- check if NAT is enabled -- */
+    if (nat_enabled != 0) {
+        sr.nat_enabled = nat_enabled;
+
+        sr.icmp_query_timeout = icmp_query_timeout;
+        sr.tcp_est_timeout = tcp_est_timeout;
+        sr.tcp_trans_timeout = tcp_trans_timeout;
+        if (sr_nat_init(sr.nat)) {
+            printf("NAT was succesfully initialized \n");
+        }
+    }
+    
     /* -- whizbang main loop ;-) */
     while( sr_read_from_server(&sr) == 1);
 

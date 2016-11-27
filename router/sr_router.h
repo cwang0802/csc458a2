@@ -15,6 +15,7 @@
 
 #include "sr_protocol.h"
 #include "sr_arpcache.h"
+#include "sr_nat.h"
 
 /* we dont like this debug , but what to do for varargs ? */
 #ifdef _DEBUG_
@@ -59,7 +60,7 @@ struct sr_instance
     unsigned int icmp_query_timeout;
     unsigned int tcp_est_timeout;
     unsigned int tcp_trans_timeout;
-    sr_nat* nat;
+    struct sr_nat* nat;
 };
 
 /* -- sr_main.c -- */

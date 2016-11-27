@@ -16,7 +16,7 @@ Then:
 ./run_pox.sh
 
 also:
-
+./sr
 
 ./sr_nat -n -l logname.pcap
 

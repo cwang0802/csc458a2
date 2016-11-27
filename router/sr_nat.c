@@ -4,6 +4,16 @@
 #include "sr_nat.h"
 #include <unistd.h>
 
+/*Added by student:*/
+#include "sr_if.h"
+#include "sr_rt.h"
+#include "sr_router.h"
+#include "sr_protocol.h"
+#include "sr_arpcache.h"
+#include "sr_utils.h"
+#include "string.h"
+#include "stdlib.h"
+
 int sr_nat_init(struct sr_nat *nat) { /* Initializes the nat */
 
   assert(nat);
@@ -94,8 +104,22 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   pthread_mutex_lock(&(nat->lock));
 
   /* handle insert here, create a mapping, and then return a copy of it */
-  struct sr_nat_mapping *mapping = NULL;
-
+  struct sr_nat_mapping *mapping = malloc(sizeof(struct sr_nat_mapping));
+  
+  mapping->type = type;
+  mapping->ip_int = ip_int;
+  mapping->aux_int = aux_int;
+  mapping->last_updated = time(NULL);
+  
+  /* Loop through NAT until you find empty router*/
+  
+  struct sr_nat_mapping *lastMap = nat->mappings;
+  
+  while (lastMap->next) {
+	lastMap = lastMap->next;
+  }
+  lastMap->next = mapping;
+  
   pthread_mutex_unlock(&(nat->lock));
   return mapping;
 }
@@ -117,6 +141,8 @@ void sr_handle_nat(
   printf("Ok, we are about to send a packet, must NATify it first! Here is what is inside the packet:\n");
 
   print_hdrs(packet, len);
+  
+  
   
   /* 
   check if ICMP or TCP

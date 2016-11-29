@@ -41,7 +41,7 @@ struct sr_nat_mapping {
 struct sr_nat {
   /* add any fields here */
   struct sr_nat_mapping *mappings;
-
+  int next_port;
   /* threading */
   pthread_mutex_t lock;
   pthread_mutexattr_t attr;

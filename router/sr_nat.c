@@ -35,6 +35,7 @@ int sr_nat_init(struct sr_nat *nat) { /* Initializes the nat */
 
   nat->mappings = NULL;
   /* Initialize any variables here */
+  nat->next_port = 1024;
 
   return success;
 }
@@ -76,6 +77,11 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
 
   /* handle lookup here, malloc and assign to copy */
   struct sr_nat_mapping *copy = NULL;
+  
+  struct sr_nat_mapping *lastMap = nat->mappings;  
+  while (lastMap->next) {
+	lastMap = lastMap->next;
+  }  
 
   pthread_mutex_unlock(&(nat->lock));
   return copy;
@@ -90,6 +96,9 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
 
   /* handle lookup here, malloc and assign to copy. */
   struct sr_nat_mapping *copy = NULL;
+  
+  
+  
 
   pthread_mutex_unlock(&(nat->lock));
   return copy;
@@ -105,11 +114,28 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
 
   /* handle insert here, create a mapping, and then return a copy of it */
   struct sr_nat_mapping *mapping = malloc(sizeof(struct sr_nat_mapping));
+  struct sr_nat_mapping *mapping_insert = malloc(sizeof(struct sr_nat_mapping));
   
-  mapping->type = type;
-  mapping->ip_int = ip_int;
-  mapping->aux_int = aux_int;
-  mapping->last_updated = time(NULL);
+  mapping_insert->type = type;
+  mapping_insert->ip_int = ip_int;
+  mapping_insert->aux_int = aux_int;
+  
+  if (type == nat_mapping_tcp){
+	  /*hardcode external IP to ETH2 */
+	  mapping_insert->ip_ext = ;
+	  /* Get the next available external Port
+	   * 
+	   * mapping_insert->aux_ext = ; */
+	  
+	  mapping_insert->aux_ext = nat->next_port;
+	  nat->next_port = nat->next_port + 1;
+	  
+  }
+
+  uint32_t ip_ext; /* external ip addr */
+  uint16_t aux_ext; /* external port or icmp id */
+
+  mapping_insert->last_updated = time(NULL);
   
   /* Loop through NAT until you find empty router*/
   
@@ -118,9 +144,13 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   while (lastMap->next) {
 	lastMap = lastMap->next;
   }
-  lastMap->next = mapping;
+  lastMap->next = mapping_insert;
   
   pthread_mutex_unlock(&(nat->lock));
+  
+  memcpy(mapping, mapping_insert, sizeof(struct sr_nat_mapping));
+  
+  
   return mapping;
 }
 
@@ -141,6 +171,7 @@ void sr_handle_nat(
   printf("Ok, we are about to send a packet, must NATify it first! Here is what is inside the packet:\n");
 
   print_hdrs(packet, len);
+  
   
   
   

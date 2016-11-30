@@ -206,9 +206,6 @@ void sr_handle_nat(
   sr->nat->sr = sr; /* Ensure that, given NAT, we can find SR again */
   print_hdrs(packet, len);
   
-  
-  
-  
   /* 
   check if ICMP or TCP
   if packet is outgoing (internal -> external):
@@ -233,28 +230,22 @@ void sr_handle_nat(
     lpm_result = sr_find_lpm(sr->routing_table, ip_header->ip_dst);
   }
 
-
-	
-
-/*
+  /** UNTESTED CODE **/
   switch(protocol) {
     case ip_protocol_icmp:
-      if (interface == 'eth1') {
-		  
-
-		  
-
-        if (lpm_result != NULL && lpm_result->interface != 'eth1') {
-
+      if (strcmp("eth1", iface)) {
+        /* arrived on internal interface */
+        if (lpm_result != NULL && strcmp("eth1", lpm_result->interface)) {
+          /* going to external interface */
 
           sr_icmp_hdr_t *icmp_header = (sr_icmp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 
-          struct sr_nat_mapping *mapping_result = sr_nat_lookup_internal(&(sr->nat), ip_header->ip_src, icmp_header->icmp_id, nat_mapping_icmp);
+          struct sr_nat_mapping *mapping_result = sr_nat_lookup_internal(sr->nat, ip_header->ip_src, icmp_header->icmp_id, nat_mapping_icmp);
 
           if (mapping_result == NULL) {
-            mapping_result = sr_nat_insert_mapping(&(sr->nat), ip_header->ip_src, icmp_header->icmp_id, nat_mapping, icmp);
+            mapping_result = sr_nat_insert_mapping(sr->nat, ip_header->ip_src, icmp_header->icmp_id, nat_mapping_icmp);
             mapping_result->ip_ext = sr_get_interface(sr, lpm_result->interface)->ip;
-            uint16_t temp_aux_ext = get_new_icmp_id(&(sr->nat));
+            uint16_t temp_aux_ext = get_new_icmp_id(sr->nat);
             if (temp_aux_ext != -1) {
               mapping_result->aux_ext = temp_aux_ext;
             } else {
@@ -268,29 +259,29 @@ void sr_handle_nat(
           icmp_header->icmp_sum = calc_icmp_cksum(icmp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
         }
 
-        sr_handle_regular_IP(sr, packet, len, interface, ip_header);
+        sr_handle_regular_IP(sr, packet, len, iface, ip_header);
       } else {
-
+        /* arrived on external interface */
         if (dest_if != 0) {
-
+          /* going to internal interface */
 
           sr_icmp_hdr_t *icmp_header = (sr_icmp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 
-          struct sr_nat_mapping *mapping_result = sr_nat_lookup_external(&(sr->nat), icmp_header->icmp_id, nat_mapping_icmp);
+          struct sr_nat_mapping *mapping_result = sr_nat_lookup_external(sr->nat, icmp_header->icmp_id, nat_mapping_icmp);
 
           if (mapping_result != NULL) {
 
-
+            /* NOTE: icmp type?? not sure yet... */
             ip_header->ip_dst = mapping_result->ip_int;
             icmp_header->icmp_id = mapping_result->aux_int;
             ip_header->ip_sum = calc_ip_cksum(ip_header);
             icmp_header->icmp_sum = calc_icmp_cksum(icmp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
 
-            sr_handle_regular_IP(sr, packet, len, interface, ip_header);
+            sr_handle_regular_IP(sr, packet, len, iface, ip_header);
           }
         } else {
-          if (lpm_result->interface != 'eth1') {
-            sr_handle_regular_IP(sr, packet, len, interface, ip_header);
+          if (!strcmp("eth1", lpm_result->interface)) {
+            sr_handle_regular_IP(sr, packet, len, iface, ip_header);
           }
         }
 
@@ -303,11 +294,7 @@ void sr_handle_nat(
 
     default:
       break;
-  }
-  
-  */
-  
-			  
+  } 
 
 }
 

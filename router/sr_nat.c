@@ -235,7 +235,7 @@ void sr_handle_nat(
     case ip_protocol_icmp:
       if (strcmp("eth1", iface)) {
         /* arrived on internal interface */
-        if (lpm_result != NULL && strcmp("eth1", lpm_result->interface)) {
+        if (lpm_result != NULL && !strcmp("eth1", lpm_result->interface)) {
           /* going to external interface */
 
           sr_icmp_hdr_t *icmp_header = (sr_icmp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));

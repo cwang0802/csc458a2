@@ -48,7 +48,10 @@ void sr_init(struct sr_instance* sr)
     pthread_t thread;
 	
     pthread_create(&thread, &(sr->attr), sr_arpcache_timeout, sr);
-    sr->nat = malloc(sizeof(struct sr_nat));
+    
+    if (sr->nat_enabled != 0) {
+    	sr->nat = malloc(sizeof(struct sr_nat));
+	}
     /* Add initialization code here! */
 
 } /* -- sr_init -- */
@@ -256,6 +259,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
   	struct sr_ip_hdr* ip_header = (struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t));
 
+  	printf("*****nat_enabled value: %d \n\n", sr->nat_enabled);
   	if (sr->nat_enabled != 0) {
 		/** NAT handling **/
 		sr_handle_nat(sr, packet, len, interface, ip_header);

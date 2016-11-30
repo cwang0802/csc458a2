@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 
     printf("Using %s\n", VERSION_INFO);
 
-    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:l:T:n:I:E:R")) != EOF)
+    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:l:T:nI:E:R:")) != EOF)
     {
         switch (c)
         {
@@ -111,6 +111,7 @@ int main(int argc, char **argv)
                 break;
             case 'n':
                 nat_enabled = 1;
+                printf("\n ****SETTING NAT \n\n");
                 break;
             case 'I':
                 icmp_query_timeout = atoi((char *) optarg);
@@ -126,6 +127,22 @@ int main(int argc, char **argv)
 
     /* -- zero out sr instance -- */
     sr_init_instance(&sr);
+
+    /* -- check if NAT is enabled -- */
+    if (nat_enabled != 0) {
+        sr.icmp_query_timeout = icmp_query_timeout;
+        sr.tcp_est_timeout = tcp_est_timeout;
+        sr.tcp_trans_timeout = tcp_trans_timeout;
+        
+        struct sr_nat *nat = malloc(sizeof(struct sr_nat));
+        printf("About to initialize NAT \n");
+        if (sr_nat_init(nat) == 0) {
+            printf("NAT was succesfully initialized \n");
+            sr.nat = nat;
+        }
+    }
+
+    sr.nat_enabled = nat_enabled;
 
     /* -- set up routing table from file -- */
     if(template == NULL) {
@@ -179,18 +196,6 @@ int main(int argc, char **argv)
 
     /* call router init (for arp subsystem etc.) */
     sr_init(&sr);
-
-    /* -- check if NAT is enabled -- */
-    if (nat_enabled != 0) {
-        sr.nat_enabled = nat_enabled;
-
-        sr.icmp_query_timeout = icmp_query_timeout;
-        sr.tcp_est_timeout = tcp_est_timeout;
-        sr.tcp_trans_timeout = tcp_trans_timeout;
-        if (sr_nat_init(sr.nat)) {
-            printf("NAT was succesfully initialized \n");
-        }
-    }
     
     /* -- whizbang main loop ;-) */
     while( sr_read_from_server(&sr) == 1);

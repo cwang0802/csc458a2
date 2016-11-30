@@ -36,8 +36,9 @@ int sr_nat_init(struct sr_nat *nat) { /* Initializes the nat */
   nat->mappings = NULL;
   /* Initialize any variables here */
   nat->next_port = 1024;
-  nat->icmp_id = 1;
+  nat->next_icmp_id = 1;
 
+  printf("FINISHED NAT INIT \n\n");
   return success;
 }
 
@@ -87,13 +88,13 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
   
   struct sr_nat_mapping *lastMap = nat->mappings;
   
-  while ( ( lastMap->aux_ext != aux_ext  
-  || lastMap->type != type )
-  && lastMap){
+  while ( lastMap && ( lastMap->aux_ext != aux_ext  
+  || lastMap->type != type )){
   lastMap = lastMap->next;
   }
   if (!lastMap){
-	return NULL;  
+    pthread_mutex_unlock(&(nat->lock));
+	  return NULL;  
   }
   memcpy(copy, lastMap, sizeof(struct sr_nat_mapping));
 
@@ -106,24 +107,32 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
 struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
   uint32_t ip_int, uint16_t aux_int, sr_nat_mapping_type type ) {
 
+  printf("1a \n");
   pthread_mutex_lock(&(nat->lock));
 
   /* handle lookup here, malloc and assign to copy. */
   struct sr_nat_mapping *copy = NULL;
   
-  
+  printf("1b \n");
   struct sr_nat_mapping *lastMap = nat->mappings;
   
-  while ( ( lastMap->ip_int != ip_int ||
+  printf("1c \n");
+  while ( lastMap && ( lastMap->ip_int != ip_int ||
 	lastMap->aux_int != aux_int 
-	|| lastMap->type != type ) && lastMap){
+	|| lastMap->type != type )){
+    printf("1cc \n");
   lastMap = lastMap->next;
   }
   if (!lastMap){
-	return NULL;  
+    printf("1ccc \n");
+    pthread_mutex_unlock(&(nat->lock));
+	  return NULL;  
   }
+
+  printf("1d \n");
   memcpy(copy, lastMap, sizeof(struct sr_nat_mapping));
 
+  printf("1d \n");
   pthread_mutex_unlock(&(nat->lock));
   return copy;
 }
@@ -134,47 +143,62 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
 struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   uint32_t ip_int, uint16_t aux_int, sr_nat_mapping_type type ) {
 
+  printf("1??? \n");
   pthread_mutex_lock(&(nat->lock));
 
+  printf("1.... \n");
   /* handle insert here, create a mapping, and then return a copy of it */
   struct sr_nat_mapping *mapping = malloc(sizeof(struct sr_nat_mapping));
 
   struct sr_nat_mapping *mapping_insert = malloc(sizeof(struct sr_nat_mapping));
   
+  printf("33333 \n");
   mapping_insert->type = type;
   mapping_insert->ip_int = ip_int;
   mapping_insert->aux_int = aux_int;
   mapping_insert->last_updated = time(NULL);
 	  /*hardcode external IP to ETH2 */
-  char name[] = "eth1";
+  printf("4444 \n");
+  /*char name[] = "eth1";
   char *labelPtr = name;
   struct sr_if *sr;
   sr = sr_get_interface(nat->sr, labelPtr);
   mapping_insert->ip_ext = sr->ip;  
   
-  if (type == nat_mapping_tcp){
+  */
+  /*if (type == nat_mapping_tcp){*/
 
 	  /* Get the next available external Port
 	   * 
 	   * mapping_insert->aux_ext = ; */
-	  nat->next_port = get_next_port(nat);
+	  /*nat->next_port = get_next_port(nat);
 	  
   } else{
 
-	  nat->next_port = get_new_icmp_id(nat);
+	  nat->next_port = get_next_icmp_id(nat);
 	  
-  }
+  }*/
+
+  /*printf("5555 \n");*/
 
   /* Loop through NAT until you find empty router*/
   
+  /* Are we inserting to the front of the list or the back? */
   struct sr_nat_mapping *lastMap = nat->mappings;
   
-  while (lastMap->next) {
-  lastMap = lastMap->next;
+  /*while (lastMap && lastMap->next) {
+    printf("3aa \n");
+    lastMap = lastMap->next;
   }
   
-  lastMap->next = mapping_insert;
+  lastMap->next = mapping_insert;*/
+
+  nat->mappings = mapping_insert;
+  mapping_insert->next = lastMap;
+
   memcpy(mapping, mapping_insert, sizeof(struct sr_nat_mapping));
+
+  printf("66666 \n\n");
   
   /* Now that it is inserted, create new timeout thread for it
    * 
@@ -233,54 +257,70 @@ void sr_handle_nat(
   /** UNTESTED CODE **/
   switch(protocol) {
     case ip_protocol_icmp:
-      if (strcmp("eth1", iface)) {
+      printf("THE INTERFACE IT ARRIVED ON: %s \n\n", iface);
+      if (strcmp("eth1", iface) == 0) {
+        printf("**---- INTERNAL INTERFACE ----** \n\n");
         /* arrived on internal interface */
-        if (lpm_result != NULL && !strcmp("eth1", lpm_result->interface)) {
+        if (lpm_result != NULL && strcmp("eth1", lpm_result->interface) != 0) {
           /* going to external interface */
 
           sr_icmp_hdr_t *icmp_header = (sr_icmp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 
-          struct sr_nat_mapping *mapping_result = sr_nat_lookup_internal(sr->nat, ip_header->ip_src, icmp_header->icmp_id, nat_mapping_icmp);
+          printf("1 \n");
+          /*if (icmp_header->icmp_type == 8 && icmp_header->icmp_code == 0) {*/
+            struct sr_nat_mapping *mapping_result = sr_nat_lookup_internal(sr->nat, ip_header->ip_src, icmp_header->icmp_id, nat_mapping_icmp);
 
-          if (mapping_result == NULL) {
-            mapping_result = sr_nat_insert_mapping(sr->nat, ip_header->ip_src, icmp_header->icmp_id, nat_mapping_icmp);
-            mapping_result->ip_ext = sr_get_interface(sr, lpm_result->interface)->ip;
-            uint16_t temp_aux_ext = get_new_icmp_id(sr->nat);
-            if (temp_aux_ext != -1) {
-              mapping_result->aux_ext = temp_aux_ext;
-            } else {
-              printf("No more ICMP IDs??? \n\n");
+            printf("2 \n");
+
+            if (mapping_result == NULL) {
+
+              printf("3a \n");
+
+              mapping_result = sr_nat_insert_mapping(sr->nat, ip_header->ip_src, icmp_header->icmp_id, nat_mapping_icmp);
+              mapping_result->ip_ext = sr_get_interface(sr, lpm_result->interface)->ip;
+              mapping_result->aux_ext = get_next_icmp_id(sr->nat);
+
+              printf("3b \n");
             }
-          }
 
-          ip_header->ip_src = mapping_result->ip_ext;
-          icmp_header->icmp_id = mapping_result->aux_ext;
-          ip_header->ip_sum = calc_ip_cksum(ip_header);
-          icmp_header->icmp_sum = calc_icmp_cksum(icmp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
-        }
+            mapping_result->last_updated = time(NULL);
+
+            ip_header->ip_src = mapping_result->ip_ext;
+            icmp_header->icmp_id = mapping_result->aux_ext;
+            ip_header->ip_sum = calc_ip_cksum(ip_header);
+            icmp_header->icmp_sum = calc_icmp_cksum(icmp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
+
+            printf("4 \n");
+          }
+        /*}*/
 
         sr_handle_regular_IP(sr, packet, len, iface, ip_header);
       } else {
+        printf("**---- EXTERNAL INTERFACE ----** \n\n");
         /* arrived on external interface */
         if (dest_if != 0) {
           /* going to internal interface */
 
           sr_icmp_hdr_t *icmp_header = (sr_icmp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 
-          struct sr_nat_mapping *mapping_result = sr_nat_lookup_external(sr->nat, icmp_header->icmp_id, nat_mapping_icmp);
+          if (icmp_header->icmp_type == 0 && icmp_header->icmp_code == 0) {
+            struct sr_nat_mapping *mapping_result = sr_nat_lookup_external(sr->nat, icmp_header->icmp_id, nat_mapping_icmp);
 
-          if (mapping_result != NULL) {
+            printf("AAAA \n\n");
+            if (mapping_result != NULL) {
 
-            /* NOTE: icmp type?? not sure yet... */
-            ip_header->ip_dst = mapping_result->ip_int;
-            icmp_header->icmp_id = mapping_result->aux_int;
-            ip_header->ip_sum = calc_ip_cksum(ip_header);
-            icmp_header->icmp_sum = calc_icmp_cksum(icmp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
+              ip_header->ip_dst = mapping_result->ip_int;
+              icmp_header->icmp_id = mapping_result->aux_int;
+              ip_header->ip_sum = calc_ip_cksum(ip_header);
+              icmp_header->icmp_sum = calc_icmp_cksum(icmp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
 
-            sr_handle_regular_IP(sr, packet, len, iface, ip_header);
+              printf("BBBB \n\n");
+              sr_handle_regular_IP(sr, packet, len, iface, ip_header);
+            }
           }
         } else {
-          if (!strcmp("eth1", lpm_result->interface)) {
+          if (strcmp("eth1", lpm_result->interface) != 0) {
+            printf("CCCC \n\n");
             sr_handle_regular_IP(sr, packet, len, iface, ip_header);
           }
         }
@@ -298,19 +338,21 @@ void sr_handle_nat(
 
 }
 
-uint16_t get_new_icmp_id(struct sr_nat *nat) {
+uint16_t get_next_icmp_id(struct sr_nat *nat) {
   pthread_mutex_lock(&(nat->lock));
 
-  uint16_t icmp_ids = nat->icmp_id;
-  
-  nat->icmp_id = nat->icmp_id + 1;
-  if (nat->icmp_id == MAX_IDS_PORTS){
-	  nat->icmp_id = 1; /* reset  back to 1? */
+  if (nat->next_icmp_id == MAX_IDS_PORTS){
+	  nat->next_icmp_id = 1; /* reset  back to 1? */
+  } else {
+    nat->next_icmp_id = nat->next_icmp_id + 1;
   }
+
+  uint16_t next_icmp_id = nat->next_icmp_id;
 
   pthread_mutex_unlock(&(nat->lock));
 
-  return icmp_ids;
+  printf("NEW ICMP ID: %d \n\n", next_icmp_id);
+  return next_icmp_id;
 }
 
 uint16_t get_next_port(struct sr_nat *nat) {

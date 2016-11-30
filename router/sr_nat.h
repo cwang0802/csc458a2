@@ -45,7 +45,7 @@ struct sr_nat {
   struct sr_nat_mapping *mappings;
   struct sr_instance *sr;
   uint16_t next_port;
-  uint16_t icmp_id;
+  uint16_t next_icmp_id;
   
   /* threading */
   pthread_mutex_t lock;
@@ -60,7 +60,7 @@ int   sr_nat_destroy(struct sr_nat *nat);  /* Destroys the nat (free memory) */
 void *sr_nat_timeout(void *nat_ptr);  /* Periodic Timout */
 
 /* Generates a new icmp identifier value for the mapping. */
-uint16_t get_new_icmp_id(struct sr_nat *);
+uint16_t get_next_icmp_id(struct sr_nat *);
 uint16_t get_next_port(struct sr_nat *);
 
 /* Given a packet, figure out if its TCP or ICMP, then do what must be

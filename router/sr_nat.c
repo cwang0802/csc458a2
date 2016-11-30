@@ -36,6 +36,7 @@ int sr_nat_init(struct sr_nat *nat) { /* Initializes the nat */
   nat->mappings = NULL;
   /* Initialize any variables here */
   nat->next_port = 1024;
+  nat->icmp_id = 1;
 
   return success;
 }
@@ -62,7 +63,13 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
     time_t curtime = time(NULL);
 
     /* handle periodic tasks here */
-
+    /* loop through each NAT, compare against below SR variables
+    unsigned int icmp_query_timeout;
+    unsigned int tcp_est_timeout;
+    unsigned int tcp_trans_timeout;
+    * 
+    * If curtime - time_updated > timeout, remove entry
+	*/
     pthread_mutex_unlock(&(nat->lock));
   }
   return NULL;
@@ -78,10 +85,17 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
   /* handle lookup here, malloc and assign to copy */
   struct sr_nat_mapping *copy = NULL;
   
-  struct sr_nat_mapping *lastMap = nat->mappings;  
-  while (lastMap->next) {
-	lastMap = lastMap->next;
-  }  
+  struct sr_nat_mapping *lastMap = nat->mappings;
+  
+  while ( ( lastMap->aux_ext != aux_ext  
+  || lastMap->type != type )
+  && lastMap){
+  lastMap = lastMap->next;
+  }
+  if (!lastMap){
+	return NULL;  
+  }
+  memcpy(copy, lastMap, sizeof(struct sr_nat_mapping));
 
   pthread_mutex_unlock(&(nat->lock));
   return copy;
@@ -98,7 +112,17 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
   struct sr_nat_mapping *copy = NULL;
   
   
+  struct sr_nat_mapping *lastMap = nat->mappings;
   
+  while ( ( lastMap->ip_int != ip_int ||
+	lastMap->aux_int != aux_int 
+	|| lastMap->type != type ) && lastMap){
+  lastMap = lastMap->next;
+  }
+  if (!lastMap){
+	return NULL;  
+  }
+  memcpy(copy, lastMap, sizeof(struct sr_nat_mapping));
 
   pthread_mutex_unlock(&(nat->lock));
   return copy;
@@ -114,41 +138,51 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
 
   /* handle insert here, create a mapping, and then return a copy of it */
   struct sr_nat_mapping *mapping = malloc(sizeof(struct sr_nat_mapping));
+
   struct sr_nat_mapping *mapping_insert = malloc(sizeof(struct sr_nat_mapping));
   
   mapping_insert->type = type;
   mapping_insert->ip_int = ip_int;
   mapping_insert->aux_int = aux_int;
+  mapping_insert->last_updated = time(NULL);
+	  /*hardcode external IP to ETH2 */
+  char name[] = "eth1";
+  char *labelPtr = name;
+  struct sr_if *sr;
+  sr = sr_get_interface(nat->sr, labelPtr);
+  mapping_insert->ip_ext = sr->ip;  
   
   if (type == nat_mapping_tcp){
-	  /*hardcode external IP to ETH2 */
-	  mapping_insert->ip_ext = ;
+
 	  /* Get the next available external Port
 	   * 
 	   * mapping_insert->aux_ext = ; */
+	  nat->next_port = get_next_port(nat);
 	  
-	  mapping_insert->aux_ext = nat->next_port;
-	  nat->next_port = nat->next_port + 1;
+  } else{
+
+	  nat->next_port = get_new_icmp_id(nat);
 	  
   }
 
-  uint32_t ip_ext; /* external ip addr */
-  uint16_t aux_ext; /* external port or icmp id */
-
-  mapping_insert->last_updated = time(NULL);
-  
   /* Loop through NAT until you find empty router*/
   
   struct sr_nat_mapping *lastMap = nat->mappings;
   
   while (lastMap->next) {
-	lastMap = lastMap->next;
+  lastMap = lastMap->next;
   }
+  
   lastMap->next = mapping_insert;
+  memcpy(mapping, mapping_insert, sizeof(struct sr_nat_mapping));
+  
+  /* Now that it is inserted, create new timeout thread for it
+   * 
+   * pthread_create( );
+   * https://computing.llnl.gov/tutorials/pthreads/
+   * */
   
   pthread_mutex_unlock(&(nat->lock));
-  
-  memcpy(mapping, mapping_insert, sizeof(struct sr_nat_mapping));
   
   
   return mapping;
@@ -169,7 +203,7 @@ void sr_handle_nat(
   
   /*Must check if its ICMP vs ARP*/
   printf("Ok, we are about to send a packet, must NATify it first! Here is what is inside the packet:\n");
-
+  sr->nat->sr = sr; /* Ensure that, given NAT, we can find SR again */
   print_hdrs(packet, len);
   
   
@@ -189,4 +223,120 @@ void sr_handle_nat(
   route packet as normal
   */   
 
+  uint8_t protocol = ip_protocol((packet + sizeof(sr_ethernet_hdr_t)));
+
+  struct sr_if *dest_if = sr_get_interface_by_ip(sr, ip_header->ip_dst);
+
+  struct sr_rt *lpm_result = NULL;
+
+  if (dest_if == 0) {
+    lpm_result = sr_find_lpm(sr->routing_table, ip_header->ip_dst);
+  }
+
+
+	
+
+/*
+  switch(protocol) {
+    case ip_protocol_icmp:
+      if (interface == 'eth1') {
+		  
+
+		  
+
+        if (lpm_result != NULL && lpm_result->interface != 'eth1') {
+
+
+          sr_icmp_hdr_t *icmp_header = (sr_icmp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+
+          struct sr_nat_mapping *mapping_result = sr_nat_lookup_internal(&(sr->nat), ip_header->ip_src, icmp_header->icmp_id, nat_mapping_icmp);
+
+          if (mapping_result == NULL) {
+            mapping_result = sr_nat_insert_mapping(&(sr->nat), ip_header->ip_src, icmp_header->icmp_id, nat_mapping, icmp);
+            mapping_result->ip_ext = sr_get_interface(sr, lpm_result->interface)->ip;
+            uint16_t temp_aux_ext = get_new_icmp_id(&(sr->nat));
+            if (temp_aux_ext != -1) {
+              mapping_result->aux_ext = temp_aux_ext;
+            } else {
+              printf("No more ICMP IDs??? \n\n");
+            }
+          }
+
+          ip_header->ip_src = mapping_result->ip_ext;
+          icmp_header->icmp_id = mapping_result->aux_ext;
+          ip_header->ip_sum = calc_ip_cksum(ip_header);
+          icmp_header->icmp_sum = calc_icmp_cksum(icmp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
+        }
+
+        sr_handle_regular_IP(sr, packet, len, interface, ip_header);
+      } else {
+
+        if (dest_if != 0) {
+
+
+          sr_icmp_hdr_t *icmp_header = (sr_icmp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+
+          struct sr_nat_mapping *mapping_result = sr_nat_lookup_external(&(sr->nat), icmp_header->icmp_id, nat_mapping_icmp);
+
+          if (mapping_result != NULL) {
+
+
+            ip_header->ip_dst = mapping_result->ip_int;
+            icmp_header->icmp_id = mapping_result->aux_int;
+            ip_header->ip_sum = calc_ip_cksum(ip_header);
+            icmp_header->icmp_sum = calc_icmp_cksum(icmp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
+
+            sr_handle_regular_IP(sr, packet, len, interface, ip_header);
+          }
+        } else {
+          if (lpm_result->interface != 'eth1') {
+            sr_handle_regular_IP(sr, packet, len, interface, ip_header);
+          }
+        }
+
+      }
+
+      break;
+
+    case ip_protocol_tcp:
+      break;
+
+    default:
+      break;
+  }
+  
+  */
+  
+			  
+
+}
+
+uint16_t get_new_icmp_id(struct sr_nat *nat) {
+  pthread_mutex_lock(&(nat->lock));
+
+  uint16_t icmp_ids = nat->icmp_id;
+  
+  nat->icmp_id = nat->icmp_id + 1;
+  if (nat->icmp_id == MAX_IDS_PORTS){
+	  nat->icmp_id = 1; /* reset  back to 1? */
+  }
+
+  pthread_mutex_unlock(&(nat->lock));
+
+  return icmp_ids;
+}
+
+uint16_t get_next_port(struct sr_nat *nat) {
+  pthread_mutex_lock(&(nat->lock));
+
+  uint16_t next_port = nat->next_port;
+  
+  nat->next_port = nat->next_port + 1;
+  if (nat->next_port == MAX_IDS_PORTS){
+	  nat->next_port = 1024; /* reset  back to 1? */
+  }
+
+  pthread_mutex_unlock(&(nat->lock));
+
+  return next_port;
 }

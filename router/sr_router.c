@@ -259,9 +259,10 @@ void sr_handlepacket(struct sr_instance* sr,
   	if (sr->nat_enabled != 0) {
 		/** NAT handling **/
 		sr_handle_nat(sr, packet, len, interface, ip_header);
-	}
+	} else {
 
-	sr_handle_regular_IP(sr, packet, len, interface, ip_header);
+		sr_handle_regular_IP(sr, packet, len, interface, ip_header);
+	}
   }
 
 }/* end sr_ForwardPacket */

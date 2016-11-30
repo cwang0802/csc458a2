@@ -15,6 +15,8 @@
 #include "sr_protocol.h"
 #include "sr_utils.h"
 
+#define MAX_IDS_PORTS 65535
+
 typedef enum {
   nat_mapping_icmp,
   nat_mapping_tcp
@@ -41,7 +43,10 @@ struct sr_nat_mapping {
 struct sr_nat {
   /* add any fields here */
   struct sr_nat_mapping *mappings;
-  int next_port;
+  struct sr_instance *sr;
+  uint16_t next_port;
+  uint16_t icmp_id;
+  
   /* threading */
   pthread_mutex_t lock;
   pthread_mutexattr_t attr;
@@ -53,6 +58,10 @@ struct sr_nat {
 int   sr_nat_init(struct sr_nat *nat);     /* Initializes the nat */
 int   sr_nat_destroy(struct sr_nat *nat);  /* Destroys the nat (free memory) */
 void *sr_nat_timeout(void *nat_ptr);  /* Periodic Timout */
+
+/* Generates a new icmp identifier value for the mapping. */
+uint16_t get_new_icmp_id(struct sr_nat *);
+uint16_t get_next_port(struct sr_nat *);
 
 /* Given a packet, figure out if its TCP or ICMP, then do what must be
  * done to ensure address gets translated */

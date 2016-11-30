@@ -83,6 +83,7 @@ struct sr_icmp_hdr {
   uint8_t icmp_type;
   uint8_t icmp_code;
   uint16_t icmp_sum;
+  uint16_t icmp_id;
   
 } __attribute__ ((packed)) ;
 typedef struct sr_icmp_hdr sr_icmp_hdr_t;

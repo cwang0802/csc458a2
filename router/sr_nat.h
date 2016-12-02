@@ -66,7 +66,7 @@ struct sr_syn {
   char *iface;
   int syn_ttl;
   struct sr_syn *next;
-}
+};
 
 
 int   sr_nat_init(struct sr_nat *nat);     /* Initializes the nat */
@@ -85,6 +85,8 @@ void sr_handle_nat(
 	unsigned int len, 
 	char *iface,
   struct sr_ip_hdr *ip_header);
+
+void handle_syn(struct sr_instance *, uint8_t *, unsigned int, char *, struct sr_ip_hdr *);
 
 /* Get the mapping associated with given external port.
    You must free the returned structure if it is not NULL. */

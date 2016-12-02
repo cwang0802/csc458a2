@@ -79,7 +79,7 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
       } else if (current_mapping->type == nat_mapping_tcp) { /* TCP */
         check_tcp_connections(nat, current_mapping);
 
-        if (current_mapping->conns == NULL && difftime(current_time, current_mapping->last_updated) > 0.5) {
+        if (current_mapping->conns == NULL && difftime(current_time, current_mapping->last_updated) > nat->sr->tcp_est_timeout) {
           destroy_mapping(nat, current_mapping);
         }
       }
@@ -521,7 +521,7 @@ void sr_handle_nat(
               printf("tcp , ip headers changed for external \n");
               sr_handle_regular_IP(sr, packet, len, iface, ip_header);
             } else {
-              if (tcp_header->flags == 0x002) {
+              if (tcp_header->tcp_flags == 0x002) {
                 if (tcp_header->tcp_dst < 1024) {
                   sr_send_icmp_error(3, 3, sr, packet);
                 } else {
@@ -547,7 +547,7 @@ void sr_handle_nat(
 }
 
 void handle_syn(struct sr_instance *sr, uint8_t *packet, unsigned int len, char *interface, struct sr_ip_hdr *ip_header) {
-  pthread_mutex_lock(&(sr->nat));
+  pthread_mutex_lock(&(sr->nat->lock));
 
   printf("MAKING NEW SYN \n\n");
   struct sr_syn *new_syn = malloc(sizeof(struct sr_syn));
@@ -561,7 +561,7 @@ void handle_syn(struct sr_instance *sr, uint8_t *packet, unsigned int len, char 
   new_syn->next = sr->nat->syns;
   sr->nat->syns = new_syn;
 
-  pthread_mutex_unlock(&(sr->nat));
+  pthread_mutex_unlock(&(sr->nat->lock));
 }
 
 uint16_t get_next_icmp_id(struct sr_nat *nat) {

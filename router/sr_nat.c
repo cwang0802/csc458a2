@@ -57,25 +57,114 @@ int sr_nat_destroy(struct sr_nat *nat) {  /* Destroys the nat (free memory) */
 }
 
 void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
-  struct sr_nat *nat = (struct sr_nat *)nat_ptr;
+  struct sr_nat *nat = (struct sr_nat *) nat_ptr;
+
   while (1) {
     sleep(1.0);
     pthread_mutex_lock(&(nat->lock));
 
-    time_t curtime = time(NULL);
+    time_t current_time = time(NULL);
 
     /* handle periodic tasks here */
-    /* loop through each NAT, compare against below SR variables
-    unsigned int icmp_query_timeout;
-    unsigned int tcp_est_timeout;
-    unsigned int tcp_trans_timeout;
-    * 
-    * If curtime - time_updated > timeout, remove entry
-	*/
+    struct sr_nat_mapping *current_mapping, *next_mapping;
+    current_mapping = nat->mappings;
+
+    while (current_mapping != NULL) {
+      next_mapping = current_mapping->next;
+
+      if (current_mapping->type == nat_mapping_icmp) { /* ICMP */
+        if (difftime(current_time, current_mapping->last_updated) > nat->sr->icmp_query_timeout) {
+          destroy_mapping(nat, current_mapping);
+        }
+      } else if (current_mapping->type == nat_mapping_tcp) { /* TCP */
+        check_tcp_connections(nat, current_mapping);
+
+        if (current_mapping->conns == NULL && difftime(current_time, current_mapping->last_updated) > 0.5) {
+          destroy_mapping(nat, current_mapping);
+        }
+      }
+      current_mapping = next_mapping;
+    }
     pthread_mutex_unlock(&(nat->lock));
   }
   return NULL;
 }
+
+
+void check_tcp_connections(struct sr_nat *nat, struct sr_nat_mapping *nat_mapping) {
+  struct sr_nat_connection *current, *next_connection;
+  time_t current_time = time(NULL);
+
+  current = nat_mapping->conns;
+
+  while (current != NULL) {
+    next_connection = current->next;
+    /* print_tcp_state(current->tcp_state); */
+
+    /*if (current->tcp_state is established ) 
+
+     
+      if (difftime(current_time, current->last_updated) > nat->sr->tcp_estb_timeout) {
+        destroy_tcp_connections(nat_mapping, current);
+      }
+     else {
+      if (difftime(current_time, current->last_updated) > nat->sr->tcp_trans_timeout) {
+        destroy_tcp_connections(nat_mapping, current); */
+      }
+
+    current = next_connection;
+  
+}
+
+
+void destroy_tcp_connections(struct sr_nat_mapping *mapping, struct sr_nat_connection *connection) {
+  printf("[REMOVE] TCP connection\n");
+  struct sr_nat_connection *previous = mapping->conns;
+  if (previous != NULL) {
+    if (previous == connection) {
+      mapping->conns = connection->next;
+    } else {
+      for (; previous->next != NULL && previous->next != connection; previous = previous->next) {}
+        if (previous == NULL) { 
+          return; 
+        }
+      previous->next = connection->next;
+    }
+    free(connection);
+  }
+}
+
+void destroy_mapping(struct sr_nat *nat, struct sr_nat_mapping *nat_mapping) {
+  printf("[REMOVE] nat mapping\n");
+
+  struct sr_nat_mapping *prev_mapping = nat->mappings;
+
+  if (prev_mapping != NULL) {
+    if (prev_mapping == nat_mapping) {
+      nat->mappings = nat_mapping->next;
+    } else {
+      for (; prev_mapping->next != NULL && prev_mapping->next != nat_mapping; prev_mapping = prev_mapping->next) {
+
+      }
+        if (prev_mapping == NULL) {
+          return;
+        }
+      prev_mapping->next = nat_mapping->next;
+    }
+
+    struct sr_nat_connection *current, *next;
+    current = nat_mapping->conns;
+
+    while (current != NULL) {
+      next = current->next;
+      free(current);
+      current = next;
+    }
+    free(nat_mapping);
+  }
+}
+
+
 
 /* Get the mapping associated with given external port.
    You must free the returned structure if it is not NULL. */
@@ -182,7 +271,7 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   printf("Insert type: %d  \n", mapping_insert->type);
   printf("internal ip: %d \n",  mapping_insert->ip_int);
   printf("external ip: %d \n", mapping_insert->aux_int);
-  printf("last updated: %d \n", mapping_insert->last_updated);
+  /*printf("last updated: %d \n", mapping_insert->last_updated); */
   
   
   /*char name[] = "eth2";*/

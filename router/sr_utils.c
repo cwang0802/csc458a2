@@ -44,6 +44,18 @@ uint16_t calc_icmp_cksum(struct sr_icmp_hdr *icmp_header, int len) {
 	return newCksum;
 }
 
+uint16_t calc_tcp_cksum(struct sr_tcp_hdr *tcp_header, int len) {
+  uint16_t newCksum;
+  uint16_t currCksum;
+
+  currCksum = tcp_header->tcp_sum;
+  tcp_header->tcp_sum = 0;
+  newCksum = cksum(tcp_header, len);
+    tcp_header->tcp_sum = currCksum;
+
+  return newCksum;
+}
+
 uint16_t calc_icmp3_cksum(struct sr_icmp_t3_hdr *icmp3_header) {
   uint16_t newCksum;
   uint16_t currCksum; 
@@ -150,6 +162,48 @@ void print_hdr_ip(uint8_t *buf) {
 
   fprintf(stderr, "\tdestination: ");
   print_addr_ip_int(ntohl(iphdr->ip_dst));
+}
+
+/*
+struct sr_tcp_hdr {
+  uint16_t tcp_src;
+  uint16_t tcp_dst;
+  uint32_t tcp_seq;
+  uint32_t tcp_ack;
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+    unsigned int tcp_data_off:4;   
+    unsigned int tcp_reserved:3;  
+    unsigned int tcp_flags:9;    
+#elif __BYTE_ORDER == __BIG_ENDIAN
+    unsigned int tcp_flags:9;    
+    unsigned int tcp_reserved:3;   
+    unsigned int tcp_data_off:4;  
+#else
+#error "Byte ordering not specified " 
+#endif 
+  uint16_t tcp_win;
+  uint16_t tcp_sum;
+  uint16_t tcp_urg;
+
+*/
+/* Prints out fields in TCP header. */
+void print_hdr_tcp(uint8_t *buf) {
+  sr_tcp_hdr_t *tcphdr = (sr_tcp_hdr_t *)(buf);
+  fprintf(stderr, "TCP header:\n");
+  fprintf(stderr, "\tsource port: %d\n", tcphdr->tcp_src);
+  fprintf(stderr, "\tdest port: %d\n", tcphdr->tcp_dst);
+  fprintf(stderr, "\tsequence: %d\n", tcphdr->tcp_seq);
+  fprintf(stderr, "\tack number: %d\n", tcphdr->tcp_ack);
+  fprintf(stderr, "\tdata offset: %d\n", tcphdr->tcp_data_off);
+  fprintf(stderr, "\treserved: %d\n", tcphdr->tcp_reserved);
+  fprintf(stderr, "\tflags: %d\n", tcphdr->tcp_flags);
+
+  fprintf(stderr, "\twindow size: %d\n", tcphdr->tcp_win);
+
+  /*Keep checksum in NBO*/
+  fprintf(stderr, "\tchecksum: %d\n", tcphdr->tcp_sum);
+
+  fprintf(stderr, "\turgent: %d\n", tcphdr->tcp_urg);
 }
 
 /* Prints out ICMP header fields */

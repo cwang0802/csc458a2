@@ -103,7 +103,29 @@ struct sr_icmp_t3_hdr {
 typedef struct sr_icmp_t3_hdr sr_icmp_t3_hdr_t;
 
 
-
+/* Structure of a TCP header */
+struct sr_tcp_hdr {
+  uint16_t tcp_src;
+  uint16_t tcp_dst;
+  uint32_t tcp_seq;
+  uint32_t tcp_ack;
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+    unsigned int tcp_data_off:4;   /* data offset */
+    unsigned int tcp_reserved:3;  /* reserved */
+    unsigned int tcp_flags:9;    /* flags */
+#elif __BYTE_ORDER == __BIG_ENDIAN
+    unsigned int tcp_flags:9;    /* flags */
+    unsigned int tcp_reserved:3;   /* reserved */
+    unsigned int tcp_data_off:4;  /* data offset */
+#else
+#error "Byte ordering not specified " 
+#endif 
+  uint16_t tcp_win;
+  uint16_t tcp_sum;
+  uint16_t tcp_urg;
+  
+} __attribute__ ((packed)) ;
+typedef struct sr_tcp_hdr sr_tcp_hdr_t;
 
 /*
  * Structure of an internet header, naked of options.
@@ -117,7 +139,7 @@ struct sr_ip_hdr
     unsigned int ip_v:4;		/* version */
     unsigned int ip_hl:4;		/* header length */
 #else
-#error "Byte ordering ot specified " 
+#error "Byte ordering not specified " 
 #endif 
     uint8_t ip_tos;			/* type of service */
     uint16_t ip_len;			/* total length */

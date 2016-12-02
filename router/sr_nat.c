@@ -38,7 +38,8 @@ int sr_nat_init(struct sr_nat *nat) { /* Initializes the nat */
   nat->next_port = 1024;
   nat->next_icmp_id = 1;
 
-  printf("FINISHED NAT INIT \n\n");
+  printf("Initialized nat->next_port to %d \n\n", nat->next_port);
+  printf("Initialized nat->next_icmp_id to %d \n\n", nat->next_icmp_id);
   return success;
 }
 
@@ -198,6 +199,8 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
 	   * ; */
 	   
 	  mapping_insert->aux_ext = get_next_port(nat);
+    printf("external port: %d \n\n", mapping_insert->aux_ext);
+    /*exit(1);*/
 	  
   } else{
 
@@ -362,6 +365,82 @@ void sr_handle_nat(
       break;
 
     case ip_protocol_tcp:
+
+      printf("THE TCP INTERFACE IT ARRIVED ON: %s \n\n", iface);
+      if (strcmp("eth1", iface) == 0) {
+        printf("**---- INTERNAL INTERFACE ----** \n\n");
+        /* arrived on internal interface */
+        if (lpm_result != NULL && strcmp("eth1", lpm_result->interface) != 0) {
+          /* going to external interface */
+
+          sr_tcp_hdr_t *tcp_header = (sr_tcp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+
+
+          /*if (icmp_header->icmp_type == 8 && icmp_header->icmp_code == 0) {*/
+            struct sr_nat_mapping *mapping_result = sr_nat_lookup_internal(sr->nat, ip_header->ip_src, tcp_header->tcp_src, nat_mapping_tcp);
+
+
+
+            if (mapping_result == NULL) {
+
+              printf(" No match found, must insert mapping \n");
+
+              mapping_result = sr_nat_insert_mapping(sr->nat, ip_header->ip_src, tcp_header->tcp_src, nat_mapping_tcp);
+              /*
+              mapping_result->ip_ext = sr_get_interface(sr, lpm_result->interface)->ip;
+              mapping_result->aux_ext = get_next_icmp_id(sr->nat);*/
+
+              printf("insert complete! \n");
+            }
+      pthread_mutex_lock(&(sr->nat->lock));
+            mapping_result->last_updated = time(NULL);
+      pthread_mutex_unlock(&(sr->nat->lock));
+      
+            ip_header->ip_src = mapping_result->ip_ext;
+            tcp_header->tcp_src = mapping_result->aux_ext;
+            ip_header->ip_sum = calc_ip_cksum(ip_header);
+            tcp_header->tcp_sum = calc_tcp_cksum(tcp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
+
+            printf("tcp , ip headers changed \n");
+            
+            
+            
+            
+          }
+        /*}*/
+
+        sr_handle_regular_IP(sr, packet, len, iface, ip_header);
+      } else {
+        printf("**---- EXTERNAL INTERFACE ----** \n\n");
+        /* arrived on external interface */
+        if (dest_if != 0) {
+          /* going to internal interface */
+
+          sr_tcp_hdr_t *tcp_header = (sr_tcp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+
+          /* if (tcp_header->tcp_type == 0 && tcp_header->tcp_code == 0) { */
+            struct sr_nat_mapping *mapping_result = sr_nat_lookup_external(sr->nat, tcp_header->tcp_dst, nat_mapping_tcp);
+
+            printf("type is 0, code is 0 \n\n");
+            if (mapping_result != NULL) {
+
+              ip_header->ip_dst = mapping_result->ip_int;
+              tcp_header->tcp_dst = mapping_result->aux_int;
+              ip_header->ip_sum = calc_ip_cksum(ip_header);
+              tcp_header->tcp_sum = calc_tcp_cksum(tcp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
+
+              printf("tcp , ip headers changed for external \n");
+              sr_handle_regular_IP(sr, packet, len, iface, ip_header);
+            }
+          /*}*/
+        } else {
+          if (strcmp("eth1", lpm_result->interface) != 0) {
+            printf("External, going to external?! \n\n");
+            sr_handle_regular_IP(sr, packet, len, iface, ip_header);
+          }
+        }
+
+      }
       break;
 
     default:
@@ -389,8 +468,14 @@ uint16_t get_next_icmp_id(struct sr_nat *nat) {
 
 uint16_t get_next_port(struct sr_nat *nat) {
 
+  if (nat->next_port == 0) {
+    nat->next_port = 1024;
+  }
 
   uint16_t next_port = nat->next_port;
+  printf("next port: %d \n\n", next_port);
+  printf("nat->next port: %d \n\n", nat->next_port);
+  printf("next id: %d \n\n", nat->next_icmp_id);
   
   nat->next_port = nat->next_port + 1;
   if (nat->next_port == MAX_IDS_PORTS){

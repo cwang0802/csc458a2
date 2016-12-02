@@ -89,7 +89,7 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
 	  printf("type: %d \n" ,type);
 
   /* handle lookup here, malloc and assign to copy */
-  struct sr_nat_mapping *copy = NULL;
+
   
   struct sr_nat_mapping *lastMap = nat->mappings;
   
@@ -101,10 +101,14 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
   lastMap = lastMap->next;
   }
   if (!lastMap){
+	  printf("external compare found nothing \n");
     pthread_mutex_unlock(&(nat->lock));
 	  return NULL;  
   }
+  printf("external compare found something! \n");
+  struct sr_nat_mapping *copy = malloc(sizeof(struct sr_nat_mapping));
   memcpy(copy, lastMap, sizeof(struct sr_nat_mapping));
+  printf("Memcopy done \n");
 
   pthread_mutex_unlock(&(nat->lock));
   return copy;
@@ -122,7 +126,7 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
   pthread_mutex_lock(&(nat->lock));
 
   /* handle lookup here, malloc and assign to copy. */
-  struct sr_nat_mapping *copy = NULL;
+
 
   struct sr_nat_mapping *lastMap = nat->mappings;
   
@@ -145,6 +149,8 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
   
 
   printf("Found a match! \n");
+  
+  struct sr_nat_mapping *copy = malloc(sizeof(struct sr_nat_mapping));
   memcpy(copy, lastMap, sizeof(struct sr_nat_mapping));
 
   pthread_mutex_unlock(&(nat->lock));
@@ -178,25 +184,26 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   printf("last updated: %d \n", mapping_insert->last_updated);
   
   
-  /*char name[] = "eth1";
-  char *labelPtr = name;
+  /*char name[] = "eth2";*/
+  char *name = "eth2";
   struct sr_if *sr;
-  sr = sr_get_interface(nat->sr, labelPtr);
+  sr = sr_get_interface(nat->sr, name);
   mapping_insert->ip_ext = sr->ip;  
+
   
-  */
-  /*if (type == nat_mapping_tcp){*/
+  if (type == nat_mapping_tcp){
 
 	  /* Get the next available external Port
 	   * 
-	   * mapping_insert->aux_ext = ; */
-	  /*nat->next_port = get_next_port(nat);
+	   * ; */
+	   
+	  mapping_insert->aux_ext = get_next_port(nat);
 	  
   } else{
 
-	  nat->next_port = get_next_icmp_id(nat);
+	  mapping_insert->aux_ext = get_next_icmp_id(nat);
 	  
-  }*/
+  }
 
   /*printf("5555 \n");*/
 
@@ -296,8 +303,9 @@ void sr_handle_nat(
               printf(" No match found, must insert mapping \n");
 
               mapping_result = sr_nat_insert_mapping(sr->nat, ip_header->ip_src, icmp_header->icmp_id, nat_mapping_icmp);
+              /*
               mapping_result->ip_ext = sr_get_interface(sr, lpm_result->interface)->ip;
-              mapping_result->aux_ext = get_next_icmp_id(sr->nat);
+              mapping_result->aux_ext = get_next_icmp_id(sr->nat);*/
 
               printf("insert complete! \n");
             }
@@ -363,7 +371,7 @@ void sr_handle_nat(
 }
 
 uint16_t get_next_icmp_id(struct sr_nat *nat) {
-  pthread_mutex_lock(&(nat->lock));
+
 
   if (nat->next_icmp_id == MAX_IDS_PORTS){
 	  nat->next_icmp_id = 1; /* reset  back to 1? */
@@ -373,14 +381,14 @@ uint16_t get_next_icmp_id(struct sr_nat *nat) {
 
   uint16_t next_icmp_id = nat->next_icmp_id;
 
-  pthread_mutex_unlock(&(nat->lock));
+
 
   printf("NEW ICMP ID: %d \n\n", next_icmp_id);
   return next_icmp_id;
 }
 
 uint16_t get_next_port(struct sr_nat *nat) {
-  pthread_mutex_lock(&(nat->lock));
+
 
   uint16_t next_port = nat->next_port;
   
@@ -389,7 +397,6 @@ uint16_t get_next_port(struct sr_nat *nat) {
 	  nat->next_port = 1024; /* reset  back to 1? */
   }
 
-  pthread_mutex_unlock(&(nat->lock));
 
   return next_port;
 }

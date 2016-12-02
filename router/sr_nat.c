@@ -431,6 +431,14 @@ void sr_handle_nat(
 
               printf("tcp , ip headers changed for external \n");
               sr_handle_regular_IP(sr, packet, len, iface, ip_header);
+            } else {
+              if (tcp_header->flags == 0x002) {
+                if (tcp_header->tcp_dst < 1024) {
+                  sr_send_icmp_error(3, 3, sr, packet);
+                } else {
+                  handle_syn(sr, packet, len, iface, ip_header);
+                }
+              }
             }
           /*}*/
         } else {
@@ -447,6 +455,24 @@ void sr_handle_nat(
       break;
   } 
 
+}
+
+void handle_syn(struct sr_instance *sr, uint8_t *packet, unsigned int len, char *interface, struct sr_ip_hdr *ip_header) {
+  pthread_mutex_lock(&(sr->nat));
+
+  printf("MAKING NEW SYN \n\n");
+  struct sr_syn *new_syn = malloc(sizeof(struct sr_syn));
+
+  new_syn->sr = sr;
+  new_syn->packet = malloc(len);
+  memcpy(new_syn->packet, packet, len);
+  new_syn->iface = interface;
+  new_syn->syn_ttl = 6;
+
+  new_syn->next = sr->nat->syns;
+  sr->nat->syns = new_syn;
+
+  pthread_mutex_unlock(&(sr->nat));
 }
 
 uint16_t get_next_icmp_id(struct sr_nat *nat) {

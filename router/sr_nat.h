@@ -26,6 +26,8 @@ typedef enum {
 struct sr_nat_connection {
   /* add TCP connection state data members here */
 
+  
+
   struct sr_nat_connection *next;
 };
 
@@ -44,6 +46,8 @@ struct sr_nat {
   /* add any fields here */
   struct sr_nat_mapping *mappings;
   struct sr_instance *sr;
+  struct sr_syn *syns;
+
   uint16_t next_port;
   uint16_t next_icmp_id;
   
@@ -53,6 +57,16 @@ struct sr_nat {
   pthread_attr_t thread_attr;
   pthread_t thread;
 };
+
+struct sr_syn {
+
+  struct sr_instance *sr;
+  uint8_t *packet;
+  unsigned int len;
+  char *iface;
+  int syn_ttl;
+  struct sr_syn *next;
+}
 
 
 int   sr_nat_init(struct sr_nat *nat);     /* Initializes the nat */

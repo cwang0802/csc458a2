@@ -83,6 +83,11 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
 
   pthread_mutex_lock(&(nat->lock));
 
+	printf("lookup up exteral nat with these things: \n");
+
+	  printf("External port: %u \n" ,aux_ext);
+	  printf("type: %d \n" ,type);
+
   /* handle lookup here, malloc and assign to copy */
   struct sr_nat_mapping *copy = NULL;
   
@@ -90,6 +95,9 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
   
   while ( lastMap && ( lastMap->aux_ext != aux_ext  
   || lastMap->type != type )){
+	  
+	  printf("Comp External port: %u \n" , lastMap->aux_ext);
+	  printf("Comp type: %d \n" , lastMap->type);
   lastMap = lastMap->next;
   }
   if (!lastMap){
@@ -107,32 +115,38 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
 struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
   uint32_t ip_int, uint16_t aux_int, sr_nat_mapping_type type ) {
 
-  printf("1a \n");
+  printf("lookup up internal nat with these things: \n");
+  printf("Internal IP: %u \n" ,ip_int);
+  printf("internal port: %u \n" ,aux_int);
+  printf("type: %d \n" ,type);
   pthread_mutex_lock(&(nat->lock));
 
   /* handle lookup here, malloc and assign to copy. */
   struct sr_nat_mapping *copy = NULL;
-  
-  printf("1b \n");
+
   struct sr_nat_mapping *lastMap = nat->mappings;
   
-  printf("1c \n");
+
   while ( lastMap && ( lastMap->ip_int != ip_int ||
 	lastMap->aux_int != aux_int 
 	|| lastMap->type != type )){
-    printf("1cc \n");
+		
+	printf("comp Internal IP: %u \n" ,lastMap->ip_int);
+	printf("comp internal port: %u \n" ,lastMap->aux_int);
+	printf("comp type: %d \n" ,lastMap->type);
+    
   lastMap = lastMap->next;
   }
   if (!lastMap){
-    printf("1ccc \n");
+    printf("No internal nat found! \n");
     pthread_mutex_unlock(&(nat->lock));
 	  return NULL;  
   }
+  
 
-  printf("1d \n");
+  printf("Found a match! \n");
   memcpy(copy, lastMap, sizeof(struct sr_nat_mapping));
 
-  printf("1d \n");
   pthread_mutex_unlock(&(nat->lock));
   return copy;
 }
@@ -143,22 +157,27 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
 struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   uint32_t ip_int, uint16_t aux_int, sr_nat_mapping_type type ) {
 
-  printf("1??? \n");
+
   pthread_mutex_lock(&(nat->lock));
 
-  printf("1.... \n");
+
   /* handle insert here, create a mapping, and then return a copy of it */
   struct sr_nat_mapping *mapping = malloc(sizeof(struct sr_nat_mapping));
 
   struct sr_nat_mapping *mapping_insert = malloc(sizeof(struct sr_nat_mapping));
   
-  printf("33333 \n");
+  printf("Inserting a new Map. Here are the values: \n");
   mapping_insert->type = type;
   mapping_insert->ip_int = ip_int;
   mapping_insert->aux_int = aux_int;
   mapping_insert->last_updated = time(NULL);
 	  /*hardcode external IP to ETH2 */
-  printf("4444 \n");
+  printf("Insert type: %d  \n", mapping_insert->type);
+  printf("internal ip: %d \n",  mapping_insert->ip_int);
+  printf("external ip: %d \n", mapping_insert->aux_int);
+  printf("last updated: %d \n", mapping_insert->last_updated);
+  
+  
   /*char name[] = "eth1";
   char *labelPtr = name;
   struct sr_if *sr;
@@ -266,31 +285,36 @@ void sr_handle_nat(
 
           sr_icmp_hdr_t *icmp_header = (sr_icmp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 
-          printf("1 \n");
+
           /*if (icmp_header->icmp_type == 8 && icmp_header->icmp_code == 0) {*/
             struct sr_nat_mapping *mapping_result = sr_nat_lookup_internal(sr->nat, ip_header->ip_src, icmp_header->icmp_id, nat_mapping_icmp);
 
-            printf("2 \n");
+
 
             if (mapping_result == NULL) {
 
-              printf("3a \n");
+              printf(" No match found, must insert mapping \n");
 
               mapping_result = sr_nat_insert_mapping(sr->nat, ip_header->ip_src, icmp_header->icmp_id, nat_mapping_icmp);
               mapping_result->ip_ext = sr_get_interface(sr, lpm_result->interface)->ip;
               mapping_result->aux_ext = get_next_icmp_id(sr->nat);
 
-              printf("3b \n");
+              printf("insert complete! \n");
             }
-
+			pthread_mutex_lock(&(sr->nat->lock));
             mapping_result->last_updated = time(NULL);
-
+			pthread_mutex_unlock(&(sr->nat->lock));
+			
             ip_header->ip_src = mapping_result->ip_ext;
             icmp_header->icmp_id = mapping_result->aux_ext;
             ip_header->ip_sum = calc_ip_cksum(ip_header);
             icmp_header->icmp_sum = calc_icmp_cksum(icmp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
 
-            printf("4 \n");
+            printf("icmp , ip headers changed \n");
+            
+            
+            
+            
           }
         /*}*/
 
@@ -306,7 +330,7 @@ void sr_handle_nat(
           if (icmp_header->icmp_type == 0 && icmp_header->icmp_code == 0) {
             struct sr_nat_mapping *mapping_result = sr_nat_lookup_external(sr->nat, icmp_header->icmp_id, nat_mapping_icmp);
 
-            printf("AAAA \n\n");
+            printf("type is 0, code is 0 \n\n");
             if (mapping_result != NULL) {
 
               ip_header->ip_dst = mapping_result->ip_int;
@@ -314,13 +338,13 @@ void sr_handle_nat(
               ip_header->ip_sum = calc_ip_cksum(ip_header);
               icmp_header->icmp_sum = calc_icmp_cksum(icmp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
 
-              printf("BBBB \n\n");
+              printf("icmp , ip headers changed for external \n");
               sr_handle_regular_IP(sr, packet, len, iface, ip_header);
             }
           }
         } else {
           if (strcmp("eth1", lpm_result->interface) != 0) {
-            printf("CCCC \n\n");
+            printf("External, going to external?! \n\n");
             sr_handle_regular_IP(sr, packet, len, iface, ip_header);
           }
         }

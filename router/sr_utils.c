@@ -44,15 +44,14 @@ uint16_t calc_icmp_cksum(struct sr_icmp_hdr *icmp_header, int len) {
 	return newCksum;
 }
 
-uint16_t calc_tcp_cksum(uint8_t * tcp_header, int len) {
+uint16_t calc_tcp_cksum(struct sr_tcp_hdr *tcp_header, int len) {
   uint16_t newCksum;
   uint16_t currCksum;
 
-  sr_tcp_hdr_t *tcp_struct = (sr_tcp_hdr_t *) tcp_header;
-  currCksum = tcp_struct->tcp_sum;
-  tcp_struct->tcp_sum = 0;
+  currCksum = tcp_header->tcp_sum;
+  tcp_header->tcp_sum = 0;
   newCksum = cksum(tcp_header, len);
-    tcp_struct->tcp_sum = currCksum;
+    tcp_header->tcp_sum = currCksum;
 
   return newCksum;
 }

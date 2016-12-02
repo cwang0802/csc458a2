@@ -399,7 +399,7 @@ void sr_handle_nat(
             ip_header->ip_src = mapping_result->ip_ext;
             tcp_header->tcp_src = mapping_result->aux_ext;
             ip_header->ip_sum = calc_ip_cksum(ip_header);
-            tcp_header->tcp_sum = calc_tcp_cksum((packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t)), len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
+            tcp_header->tcp_sum = calc_tcp_cksum(tcp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
 
             printf("tcp , ip headers changed \n");
             
@@ -427,7 +427,7 @@ void sr_handle_nat(
               ip_header->ip_dst = mapping_result->ip_int;
               tcp_header->tcp_dst = mapping_result->aux_int;
               ip_header->ip_sum = calc_ip_cksum(ip_header);
-              tcp_header->tcp_sum = calc_tcp_cksum((packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t)), len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
+              tcp_header->tcp_sum = calc_tcp_cksum(tcp_header, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
 
               printf("tcp , ip headers changed for external \n");
               sr_handle_regular_IP(sr, packet, len, iface, ip_header);
